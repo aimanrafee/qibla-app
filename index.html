@@ -11,7 +11,6 @@
             --bg-color: #050505;
             --primary-blue: #5064fb;
             --accent-cyan: #00cfda;
-            --cosmos-purple: #9b51e0;
             --glass: rgba(255, 255, 255, 0.03);
             --border: rgba(255, 255, 255, 0.1);
         }
@@ -19,8 +18,8 @@
         body {
             background-color: var(--bg-color);
             background-image: 
-                radial-gradient(circle at 0% 0%, rgba(80, 100, 251, 0.08) 0%, transparent 50%),
-                radial-gradient(circle at 100% 100%, rgba(155, 81, 224, 0.08) 0%, transparent 50%);
+                radial-gradient(circle at 0% 0%, rgba(80, 100, 251, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 100% 100%, rgba(0, 207, 218, 0.1) 0%, transparent 50%);
             color: #ffffff;
             font-family: 'Inter', sans-serif;
             margin: 0;
@@ -33,7 +32,6 @@
             -webkit-font-smoothing: antialiased;
         }
 
-        /* Top Branding */
         .brand {
             position: absolute;
             top: 40px;
@@ -42,10 +40,8 @@
             font-weight: 700;
             color: var(--accent-cyan);
             text-transform: uppercase;
-            opacity: 0.8;
         }
 
-        /* Compass Visualizer */
         .compass-outer {
             position: relative;
             width: 320px;
@@ -56,7 +52,6 @@
             margin: 20px 0;
         }
 
-        /* Glass Disc */
         #compass-disc {
             position: absolute;
             width: 280px;
@@ -70,9 +65,9 @@
             align-items: center;
             justify-content: center;
             transition: transform 0.1s cubic-bezier(0.1, 0.3, 0.3, 1);
+            will-change: transform;
         }
 
-        /* Cardinal Directions */
         .dir {
             position: absolute;
             font-size: 14px;
@@ -84,13 +79,13 @@
         .s { bottom: 20px; }
         .w { left: 20px; }
 
-        /* Qibla Needle - Glowing Laser Effect */
         #needle-container {
             position: absolute;
             width: 100%;
             height: 100%;
             z-index: 10;
             transition: transform 0.1s cubic-bezier(0.1, 0.3, 0.3, 1);
+            will-change: transform;
         }
 
         .needle-line {
@@ -109,14 +104,13 @@
             top: -10px;
             left: 50%;
             transform: translateX(-50%);
-            width: 8px;
-            height: 8px;
+            width: 10px;
+            height: 10px;
             background: #fff;
             border-radius: 50%;
             box-shadow: 0 0 20px #fff;
         }
 
-        /* Stats Card */
         .card {
             background: var(--glass);
             border: 1px solid var(--border);
@@ -155,8 +149,8 @@
             padding: 6px 16px;
             border-radius: 100px;
             display: inline-block;
+            transition: all 0.3s ease;
         }
-
     </style>
 </head>
 <body>
@@ -189,33 +183,52 @@
         tg.headerColor = '#050505';
         tg.backgroundColor = '#050505';
 
-        // Ambil data sudut dari URL
         const urlParams = new URLSearchParams(window.location.search);
         const qiblaAngle = parseFloat(urlParams.get('qibla')) || 0;
         document.getElementById('qibla-val').innerText = qiblaAngle.toFixed(2) + "°";
 
-        function handleRotation(event) {
-            let alpha = event.alpha;
-            if (alpha === null) return;
+        function handleOrientation(event) {
+            let heading;
 
-            // Pusingan piring (Arah Utara)
-            document.getElementById('compass-disc').style.transform = `rotate(${-alpha}deg)`;
-            
-            // Pusingan jarum (Arah Kaabah)
-            const needleDir = qiblaAngle - alpha;
-            document.getElementById('needle-container').style.transform = `rotate(${needleDir}deg)`;
-            
-            const statusEl = document.getElementById('status');
-            statusEl.innerText = "SENSORS ACTIVE";
-            statusEl.style.color = "#5064fb";
-            statusEl.style.background = "rgba(80, 100, 251, 0.1)";
+            // Logik pampasan untuk ketepatan tinggi
+            if (event.webkitCompassHeading) {
+                // Kebanyakannya iOS & sesetengah Android moden
+                heading = event.webkitCompassHeading;
+            } else if (event.alpha !== null) {
+                // Android standard (Alpha 0-360)
+                heading = 360 - event.alpha;
+            }
+
+            if (heading !== undefined && heading !== null) {
+                // Gerakkan piring kompas ke Utara
+                document.getElementById('compass-disc').style.transform = `rotate(${-heading}deg)`;
+                
+                // Gerakkan jarum ke arah Kaabah relatif kepada telefon
+                const needleDir = qiblaAngle - heading;
+                document.getElementById('needle-container').style.transform = `rotate(${needleDir}deg)`;
+                
+                const statusEl = document.getElementById('status');
+                statusEl.innerText = "SENSORS ACTIVE (HIGH ACCURACY)";
+                statusEl.style.color = "#5064fb";
+                statusEl.style.background = "rgba(80, 100, 251, 0.1)";
+            }
         }
 
-        // Aktifkan sensor
-        if (window.DeviceOrientationEvent) {
-            window.addEventListener('deviceorientation', handleRotation);
+        // Prosedur kebenaran sensor
+        if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+            // Khusus untuk iOS 13+
+            document.body.addEventListener('click', function() {
+                DeviceOrientationEvent.requestPermission()
+                    .then(response => {
+                        if (response == 'granted') {
+                            window.addEventListener('deviceorientation', handleOrientation);
+                        }
+                    })
+                    .catch(console.error);
+            }, { once: true });
         } else {
-            document.getElementById('status').innerText = "HARDWARE NOT SUPPORTED";
+            // Untuk Android & browser lain
+            window.addEventListener('deviceorientation', handleOrientation);
         }
     </script>
 </body>
